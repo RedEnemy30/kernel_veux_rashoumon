@@ -1,0 +1,62 @@
+name: Build veux-kernel
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_MAXSIZE: "2G"
+      CCACHE_HARDLINK: "true"
+      KERNEL_DEFCONFIG: "veux_defconfig"
+      KERNEL_CMDLINE: "ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- O=out LLVM_IAS=1"
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: 'true'
+        fetch-depth: 0
+
+    - name: Set up ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+    
+    - name: Install dependencies
+      id: version
+      run: |
+        sudo apt-get update -y 
+        sudo apt install gcc-aarch64-linux-gnu -y
+        sudo apt install gcc-arm-linux-gnueabi -y
+        sudo apt install binutils make python3 libssl-dev build-essential bc  bison flex zip unzip libssl-dev ca-certificates xz-utils mkbootimg cpio device-tree-compiler git git-lfs -y
+        echo "Fetching LLVM tar"
+        wget https://cdn.kernel.org/pub/tools/llvm/files/llvm-17.0.6-x86_64.tar.xz 
+        echo "Extracting tar"
+        tar -xJf llvm-17.0.6-x86_64.tar.xz
+        echo "Pull submodules"
+        git submodule sync
+        git submodule update --init --recursive
+    
+    - name: GetTime
+      id: get_time
+      run: |
+        echo "TIME=$(TZ=UTC-8 date +%m%d%H%M )" >> $GITHUB_OUTPUT
+    
+    - name: Build Kernel
+      run: |
+       export PATH=$(pwd)/llvm-17.0.6-x86_64/bin/:$PATH
+       export ARCH=arm64
+       export SUBARCH=arm64
+       export KBUILD_BUILD_USER="NzTmPendi"
+       export KBUILD_BUILD_HOST="Nightly"
+       export DISABLE_WRAPPER=1
+       make $KERNEL_CMDLINE $KERNEL_DEFCONFIG CC="ccache clang"
+       make $KERNEL_CMDLINE CC="ccache clang" -j$(nproc --all)
+       make $KERNEL_CMDLINE $KERNEL_DEFCONFIG dtbs
+       cp out/arch/arm64/boot/Image AnyKernel3
+       cp out/arch/arm64/boot/dts/vendor/qcom/blair.dtb AnyKernel3/dtb
+
+    - name: Upload Kernel
+      uses: actions/upload-artifact@v3
+      with:
+        name: Veux-KernelSU-${{ steps.version.outputs.VER }}-${{ steps.get_time.outputs.TIME }}
+        path: "AnyKernel3/*"
