@@ -24,7 +24,7 @@
 	#size-cells = <2>;
 
 	chosen {
-		bootargs = "log_buf_len=256K rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off";
+		bootargs = "log_buf_len=256K rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off quiet";
 	};
 
 	memory {
@@ -1305,10 +1305,6 @@
 				<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "dcvsh0_int", "dcvsh1_int";
 		#freq-domain-cells = <2>;
-
-		qcom,cpufreq-table-0 =
-			<1708800>,
-			<1804800>;
 
 		qcom,cpufreq-table-1 =
 			<1228800>,
